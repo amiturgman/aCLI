@@ -1,0 +1,161 @@
+.cli-promptText {
+    color: #808080;
+    margin-right: 5px;
+}
+
+.cli-commandRow {
+    margin-top: 10px;
+}
+
+.cli-commandText {
+    font-weight: bold;
+}
+
+.cli-output-warn {
+    color: orange;
+}
+
+.cli-output-info {
+    color: auto;
+}
+.cli-output-error {
+    font-weight: bold;
+    color: red;
+}
+
+.cli-tab-container {
+    border: 1px solid #008000;
+    background-color: red;
+    position: absolute;
+    top: 100px;
+    left: 100px;
+    width: 300px;
+    height: 500px;
+}
+
+.cli-output {
+    position: absolute;
+    top: 0;
+    bottom: 23px;
+    left: 0;
+    right: 0px;
+    overflow: auto;
+    padding: 5px;
+    font-size: 0.95em;
+}
+
+.cli-my-board {
+    position: absolute;
+    top: 2px;
+    bottom: 25px;
+    width: 350px;
+    right: 20px;
+    padding: 5px;
+    font-size: 0.95em;
+    background-color: #ffffef;
+    border: 1px solid #d3d3d3;
+    opacity: 0.9;
+    display: none;
+    overflow: auto;
+}
+
+.cli-my-board-close {
+    display: none;
+    background-image: url(data:image/png;base64,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);
+    height: 30px;
+    width: 30px;
+    background-color: transparent;
+    position: absolute;
+    left: 3px;
+    top: 2px;
+}
+
+.cli-my-board:hover .cli-my-board-close { /* when hovering a note- display its close button */
+    display: block;
+}
+
+.cli-my-board-title {
+    background-color: #ffffad;
+    font-weight: bold;;
+    text-align: center;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.cli-my-board-item {
+    margin-top: 5px;
+}
+
+.cli-input-container {
+    position: absolute;
+    height: 22px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border: 1px solid #808080;
+    vertical-align: bottom;
+    background-color: white;
+    padding: 0 5px 0 5px;
+    text-align: left;
+}
+
+.cli-input{
+    font-size: 0.9em;
+    border: 0px solid black;
+    outline: none;
+    background-color: transparent;
+    font-family: courier new;
+    font-weight: bold;
+    width: 60%;
+    color: black;
+}
+
+.cli-table {
+    border-collapse: collapse;
+    empty-cells: show;
+    border: 1px solid gray;
+}
+
+.cli-table td, th {
+    padding: 2px 3px 2px 3px;
+    vertical-align: top;
+    text-align: left;
+}
+.cli-table td {
+    background-color: #eeeeee;
+}
+.cli-table th {
+    color: blue;
+    background-color: #eeeeda;
+}
+
+.cli-jsonview-control .metadataField
+{
+    background-color: #eeeeee;
+    font-weight: bold;
+}
+
+.cli-jsonview-control .metadataFieldCollapsed
+{
+    background-color: #edd3d6;
+}
+
+.cli-jsonview-control .metadataValue
+{
+    background-color: #eeeeda;
+}
+
+.cli-jsonview-control table {
+    border-collapse:collapse;
+    empty-cells:show;
+    font-family: courier;
+}
+
+.cli-jsonview-control table td {
+    border: 1px silver solid;
+    padding: 2px 3px 2px 3px;
+    vertical-align: top;
+    text-align: left;
+    word-wrap: normal;
+}
