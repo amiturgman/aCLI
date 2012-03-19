@@ -26,6 +26,9 @@ Features
 * Supports working in parallel with few instances/tabs of the console.
 * Supports broadcasting requests when working on a farm.
 
+
+![Example for 'My Board' feature](cli_myboard.jpg "aCLI with My Board")
+
 Getting Started
 ---------------
 The following is an example of how to quickly start using the component.  
