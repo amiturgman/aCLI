@@ -50,64 +50,64 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
     );
 
     app.post('/html', function(req, res) {
-                var flag = req.query.flag;
-                res.writeHead(200, {'Content-Type': 'text/html' });
-                res.end("<div style='background-color: red;'>HTML output: Template Param: "+req.params.tparam+
-                    " Flag: " + flag +"</div>");
+            var flag = req.query.flag;
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end("<div style='background-color: red;'>HTML output: body param: " + req.body.bparam +
+                            " Flag: " + flag + "</div>");
         },
             {
                 id: 'sample_html',
                 name: 'html',
                 usage: 'html tparam qparam',
                 example: 'html tparam qparam',
-                doc: 'sample for a POST command getting a template param returning html',
+                doc: 'sample for a POST command getting a body param returning html',
                 params: {
-                    "bparam" : {
+                    "bparam": {
                             "short": "b",
                             "type": "string",
-                            "doc": "template param",
+                            "doc": "post body param",
                             "style": "body",
                             "required": "true"
-                        },
-                    "flag" : {
-                        "short": "f",
-                        "type": "bool",
-                        "doc": "some boolean flag",
-                        "style": "query",
-                        "required": "true"
-                    }
+                          },
+                          "flag": {
+                            "short": "f",
+                            "type": "bool",
+                            "doc": "some boolean flag",
+                            "style": "query",
+                            "required": "true"
+                      }
                 }
             }
     );
 
     app.post('/htmlbcast', function(req, res) {
-                    var flag = req.query.flag;
-                    res.writeHead(200, {'Content-Type': 'text/html' });
-                    res.end("<div class='anode-sample-class'>HTML output: ("+req.query['server']+"): Template Param: "+req.params.tparam+
-                        " Flag: " + flag +"</div>");
+                var flag = req.query.flag;
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end("<div class='anode-sample-class'>HTML output: (" + req.body.bparam + "): POST Param: " + req.body.bparam +
+                                    " Flag: " + flag + "</div>");
             },
                 {
                     id: 'sample_htmlbcast',
                     name: 'htmlbcast',
                     usage: 'htmlbcast tparam qparam',
                     example: 'htmlbcast tparam qparam',
-                    doc: 'sample for a broadcasting POST command getting a template param returning html',
+                    doc: 'sample for a broadcasting POST command getting a body param returning html',
                     broadcast: true,
                     params: {
-                        "bparam" : {
+                        "bparam": {
                                 "short": "b",
                                 "type": "string",
-                                "doc": "template param",
+                                "doc": "POST param",
                                 "style": "body",
                                 "required": "true"
-                            },
-                        "flag" : {
-                            "short": "f",
-                            "type": "bool",
-                            "doc": "some boolean flag",
-                            "style": "query",
-                            "required": "true"
-                        }
+                              },
+                              "flag": {
+                                "short": "f",
+                                "type": "bool",
+                                "doc": "some boolean flag",
+                                "style": "query",
+                                "required": "true"
+                              }
                     },
                     controller: {
                         css: '.anode-sample-class{ background-color: green; }'
@@ -118,7 +118,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
     app.post('/htmlbcasthandler', function(req, res) {
                     var flag = req.query.flag;
                     res.writeHead(200, {'Content-Type': 'text/html' });
-                    res.end("<div style='background-color: yellow;'>HTML output: ("+req.query['server']+"): Template Param: "+req.params.tparam+
+                    res.end("<div style='background-color: yellow;'>HTML output: ("+req.query['server']+"): Template Param: "+req.body.bparam+
                         " Flag: " + flag +"</div>");
             },
                 {
@@ -132,7 +132,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
                         "bparam" : {
                                 "short": "b",
                                 "type": "string",
-                                "doc": "template param",
+                                "doc": "body param",
                                 "style": "body",
                                 "required": "true"
                             },

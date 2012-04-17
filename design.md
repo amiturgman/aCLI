@@ -253,7 +253,8 @@ The exec method is the handler that is called to handle the command execution, a
 		* `setProgress(progress)`- sets an indicator with a number in the range [0, 100] to indicate the progress.
 		* `resolve(result)`- when the process completes, this methods trasfers the final result to be displayed on the results panel.  
 		The result can be `text`, `html`, `jquery object` which will be displayed as is, or a `json` object which will be displayed using a generic internal json-view control.
-	
+	* `scrollDown()`- scrolls the console to the bottom of the screen.
+
 #### Group of commands
 To add a group of commands, we define a virtual _parent_ command, containing the group command name, and then all the sub-commands' name, will be preceeded by the group command name.
 The following is an example for a group command with two subcommands:
@@ -669,7 +670,7 @@ The following `someplugin bcast` command which defines the `broadcast` attribute
 	});
 	
 On the client side, when initializing the ACLI component, it is important to provide the `broadcastUrlGenerator` 
-which is responsible to get a url and return an array of urls to be used for collecting results from all servers in the farm.
+which is responsible to get an ajax request options object and return an array of ajax request options objects to be used for collecting results from all servers in the farm.
 	
 ### Advanced Commands
 

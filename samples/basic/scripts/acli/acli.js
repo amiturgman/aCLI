@@ -43,13 +43,15 @@
                     myBoard = new MyBoard(),
                     history = new History(),
                     env = new Environment(),
-                    commands = new Commands(options.commands);
+                    commands = new Commands(options.commands),
+                    plugins = new Plugins();
 
                 data = {
                     input : $this,
                     options: options,
                     history: history,
                     commands: commands,
+                    plugins: plugins,
                     env: env,
                     writeMessage: writeMessage
                 };
@@ -70,9 +72,8 @@
                 writeMessage('info', '&nbsp;');
 
                 addDefaultCommands();
-                var storedPlugins = loadPluginsFromStorage();
-                var plugins = options.plugins ? options.plugins.concat(storedPlugins) : storedPlugins;
-                loadPlugins(plugins);
+
+                plugins.init();
 
                 $this.focus();
 
@@ -509,6 +510,7 @@
                     // we copy the command so that handlers will not be able to change its properties
                     execContext.command = jQuery.extend(true, {}, command);
                     execContext.env = jQuery.extend(true, {}, env.env());
+                    execContext.scrollDown = scrollDown;
 
                     var res =  command.exec(args, execContext);
                     var img = $("<img>").attr('src', $.fn.cli.images.processing);
@@ -618,6 +620,7 @@
                                     var cmds = getSortedCommands();
                                     for(var i=0; i<cmds.length; i++) {
                                         var command = cmds[i];
+                                        if(command.hidden) continue;
                                         if(command.name.indexOf(args.command+' ') == 0)
                                         { // this is a sub command of args.command
                                             var row = $("<tr>")
@@ -640,15 +643,15 @@
 
                                 for(var i=0;i<sortedArray.length; i++) {
                                     var command = sortedArray[i];
-                                    if(!command.hidden) {
-                                        if(command.name.split(' ').length==1) {
-                                            var row = $("<tr>")
-                                                .append($("<td>").html(command.name))
-                                                .append($("<td>").html(command.description))
-                                                .append($("<td>").html(command.usage || ''));
+                                    if(command.hidden) continue;
 
-                                            row.appendTo(tbl);
-                                        }
+                                    if(command.name.split(' ').length==1) {
+                                        var row = $("<tr>")
+                                            .append($("<td>").html(command.name))
+                                            .append($("<td>").html(command.description))
+                                            .append($("<td>").html(command.usage || ''));
+
+                                        row.appendTo(tbl);
                                     }
                                 }
                             }
@@ -903,36 +906,15 @@
 
                             var resp = $("<div>");
 
-                            var plugin = { url: args.url, userCommand: true };
-                            if(args.name) plugin.groupCommandName = args.name;
+                            var plugin = { url: args.url, userCommand: true, name: args.name };
+                            plugin.groupCommandName = args.name;
 
                             if(commands.get(args.name)) {
                                 resp.addClass('cli-output-error').html('plugin name \''+args.name+'\' already exists, please choose another plugin name');
                                 return resp;
                             }
 
-                            var promise = context.createPromise();
-                            getPluginCommands(plugin, function(err,response){
-                                if(err) {
-                                    resp.addClass('cli-output-error').html('couldn\'t load plugin from ' + plugin.url + '. Error: '+err);
-                                    promise.resolve(resp);
-                                    return;
-                                }
-
-                                var newCommands = compilePlugin(response);
-                                _.each(newCommands, function(cmd) {
-                                    commands.add(cmd);
-                                });
-
-                                if(args.persist) {
-                                    storePlugin(plugin);
-                                }
-
-                                resp.addClass('cli-output-info').html('plugin loaded successfully, type \'help '+args.name+'\' to see list of commands');
-                                promise.resolve(resp);
-                            });
-
-                            return promise;
+                            plugins.loadPlugin(plugin, args.persist, function(){});
                         }
                     }
 
@@ -964,7 +946,7 @@
                             }
 
                             // delete from local storage
-                            removeStoredCommand(args.name);
+                            plugins.removePlugin(args.name);
 
                             writeMessage('info', 'plugin \''+args.name+'\' uninstalled successfully');
                         }
@@ -977,7 +959,7 @@
                         example: 'plugins reset',
                         params: [],
                         exec: function(args, context) {
-                            var userCommands = loadPluginsFromStorage();
+                            var userCommands = plugins.list();
 
                             try {
                                 for(var i=0; i<userCommands.length; i++)
@@ -989,9 +971,27 @@
                             }
 
                             // delete all local storage
-                            clearStoredCommands();
+                            plugins.reset();
 
                             writeMessage('info', 'plugins uninstalled successfully');
+                        }
+                    }
+
+                    var listPluginsCommand = {
+                        name: "plugins list",
+                        description: "Show a list of all user's installed plugins",
+                        usage: 'plugins list',
+                        example: 'plugins list',
+                        params: [],
+                        exec: function(args, context) {
+                            var userCommands = plugins.list().map(function(plg){
+                                return {
+                                    name: plg.name,
+                                    url: plg.url
+                                }
+                            });
+
+                            return userCommands.length ? userCommands : 'no plugins currently installed';
                         }
                     }
 
@@ -1163,6 +1163,7 @@
                     commands.add(setCommand);
                     commands.add(getCommand);
                     commands.add(pluginsGroupCommand);
+                    commands.add(listPluginsCommand);
                     commands.add(installPluginCommand);
                     commands.add(uninstallPluginCommand);
                     commands.add(resetPluginsCommand);
@@ -1173,391 +1174,7 @@
                     //commands.add(sampleGroupCommand2);
                 }
 
-                function loadPlugins(plugins) {
-                    $(plugins).each(function(index ,plugin) {
-                        writeMessage('info', 'loading plugin ' + plugin.url);
 
-                        getPluginCommands(plugin, function(error, commandsInfo){
-                            if(plugin.options){
-                                for(var name in plugin.options){
-                                    var cmd = _.find(commandsInfo.commands, function(item) {
-                                        return item.name === name;
-                                    });
-                                    cmd.options = plugin.options[name];
-                                }
-                            }
-                            var newCommands = compilePlugin(commandsInfo);
-                            _.each(newCommands, function(cmd) {
-                                commands.add(cmd);
-                            });
-                        });
-                    });
-                }
-
-                    //commandsInfo: {url: url, plugin: plugin, commands: data}
-                function compilePlugin(commandsInfo) {
-
-                    var newCommands = {};
-                     var cmds = commandsInfo.commands;
-                     if(!cmds || !cmds.length) return;
-
-                     // group command is the last element of the url
-                     var commandRootUrl = commandsInfo.url.replace('/!!','');
-                     var commandName = commandsInfo.plugin.groupCommandName || commandRootUrl.split('/').pop();
-
-                     // we create group for apis with more than 1 command or
-                     // for remote commads which were loaded by the user
-                     var isGroup = cmds.length > 1 || commandsInfo.plugin.userCommand;
-                     if(isGroup) {
-                         var gCommand = createGroupCommand(commandName);
-                         if(commandsInfo.plugin.userCommand) gCommand.userCommand=true;
-                         newCommands[commandName] = gCommand;
-                     }
-
-                     var autoSubCommandNameIndex = 1;
-                     for(var i=0; i<cmds.length; i++) {
-                         var cmd = cmds[i];
-                         var cmdName = commandName;
-
-                         // construct command name
-                         // try getting name --> id --> create auto name
-                         if(isGroup) {
-                             var subCommandName = cmd.name || cmd.id || ('autoCommand'+(autoSubCommandNameIndex++));
-                             cmdName += ' ' + subCommandName.toLowerCase();
-                         }
-                         newCommands[cmdName] = createCommand(cmdName, cmd, commandRootUrl, commandsInfo.plugin);
-                     }
-
-                     return newCommands;
-
-                     function createCommand(name, cmd, rootUrl, plugin) {
-
-                         //plugin.options = plugin.options || {};
-                         //var exclueAndOverride = plugin.options[name] ?  plugin.options[name].excludeAndOverideParams : {};
-
-                         var exclueAndOverride = cmd.options ? cmd.options.excludeAndOverideParams : {};
-
-                         var newCommand = {
-                             name: name,
-                             usage: cmd.usage,
-                             example: cmd.example,
-                             response: cmd.response || 'json',
-                             method: cmd.method,
-                             rootUrl: rootUrl,
-                             path: rootUrl + cmd.path,
-                             plugin: plugin,
-                             ignoredParams: {},
-                             options: cmd.options
-                         }
-
-                         if(cmd.hasOwnProperty('doc')) newCommand.description = cmd.doc;
-                         if(cmd.hasOwnProperty('usage')) newCommand.usage = cmd.usage;
-                         if(cmd.hasOwnProperty('example')) newCommand.example = cmd.example;
-
-                         var params = [];
-                         for(var paramName in cmd.params) {
-                             var param = cmd.params[paramName];
-                             var newParam =
-                             {
-                                 name: paramName,
-                                 type: getType(param.type),
-                                 style: param.style
-                             }
-                             if(param.hasOwnProperty('doc')) newParam.description = param.doc;
-                             if(param.hasOwnProperty('options')) newParam.options = param.options;
-                             if(param.hasOwnProperty('short')) newParam.short = param.short;
-                             if(param.hasOwnProperty('defaultEnvVar')) newParam.defaultEnvVar = param.defaultEnvVar;
-                             if(param.hasOwnProperty('defaultValue'))
-                                 newParam.defaultValue = param.defaultValue;
-                             else if(!param.required) newParam.defaultValue = null;
-
-                             if(!exclueAndOverride || !exclueAndOverride[paramName])
-                                 params.push(newParam);
-                             else
-                                 newCommand.ignoredParams[newParam.name] = newParam;
-                         }
-                         newCommand.params = params;
-
-                         // add the rest of the command fields
-                         for(var field in cmd) {
-                             if(!newCommand.hasOwnProperty(field))
-                                 newCommand[field] = cmd[field];
-                         };
-
-                         if(newCommand.controller) {
-
-                             if(newCommand.controller.url) {
-
-                                 var initPath = rootUrl + '/' + newCommand.controller.url,
-                                      scriptName = initPath.replace(/\//g, '_').replace(/\./g, '__').replace(/:/g, '___').replace(/-/g, '____'),
-                                      scriptNameObj = 'obj' + scriptName,
-                                      handlerName = newCommand.controller.handler || (newCommand.name.split(' ').length == 2 ? newCommand.name.split(' ')[1] :  newCommand.name),
-                                      scriptUrl = newCommand.controller.url.indexOf('http')==0 ? newCommand.controller.url : '';
-
-                                  if(!scriptUrl) scriptUrl=initPath;
-
-                                  if(!newCommand.options) newCommand.options = {};
-
-                                 if(window.hasOwnProperty(scriptNameObj)) {
-                                      newCommand.options.handler = window[scriptNameObj][handlerName];
-                                 }
-                                 else
-                                 {
-                                     $.get(scriptUrl, function (responseText, textStatus, xhr){
-
-                                         if(xhr.status!=200 || !responseText){
-                                               var msg = 'got status code:' + xhr.status + ';status text:'+xhr.statusText+'; response:' + xhr.responseText;
-                                               console.error("can't load plugin from ", newCommand.controller.url, ': ', msg);
-                                           }
-                                          else
-                                          {
-                                              if(!window.hasOwnProperty(scriptNameObj)) {
-                                                  var str = 'function '+scriptName+'() {' + responseText + '}';
-                                                  $("<script>").html(str).appendTo("head");
-                                                  var context = {};
-                                                  window[scriptName].call(context);
-                                                  window[scriptNameObj] = context;
-                                                  console.log('added handler script:', scriptName);
-                                              }
-                                              newCommand.options.handler = window[scriptNameObj][handlerName];
-                                          }
-                                     });
-                                 }
-                             }
-
-                             if(newCommand.controller.cssUrl){
-                                 var cssUrl = newCommand.controller.cssUrl.indexOf('http')==0 ? newCommand.controller.cssUrl : '';
-                                 if(!cssUrl) cssUrl = rootUrl + '/' + newCommand.controller.cssUrl;
-
-                                 loadCss(cssUrl);
-                             }
-
-                             if(newCommand.controller.css) addCss(newCommand.controller.css);
-                         }
-
-                         newCommand.exec = function(args, context) {
-                             console.log(args, this);
-
-                             // construct url
-                             var url = this.path;
-                             var body = null;
-                             var method = this.method;
-
-                             for(var i=0; i<this.params.length; i++) {
-                                 var param = this.params[i];
-                                 if(!args[param.name]) continue;
-
-                                 addParam(param, args[param.name]);
-                             }
-
-                             // override params
-                             var exclueAndOverride = this.options ? this.options.excludeAndOverideParams : {};
-                             //var exclueAndOverride = this.plugin.options[this.name] ?  this.plugin.options[this.name].excludeAndOverideParams : {};
-                             for(var paramName in exclueAndOverride){
-                                 addParam(this.ignoredParams[paramName], exclueAndOverride[paramName]);
-                             }
-
-                             function addParam(param, value) {
-                                 switch(param.style) {
-                                     case 'template' :
-                                         url = url.replace(':'+param.name, value);
-                                         break;
-                                     case 'query' :
-                                         var qsParam = param.name+'='+value;
-                                         if(url.indexOf('?')<0) url+='?'+qsParam;
-                                         else url+='&'+qsParam;
-                                         break;
-                                     case 'body' :
-                                         if(!body) body={};
-                                         body[param.name] = value;
-                                         break;
-                                 }
-                             }
-
-                             // add $ variables from environment
-                             url = addDefaultQueryVariables(url, context.env);
-
-                            var handler = this.options && this.options.handler ? this.options.handler : null;
-
-                            // check if this is a broadcast command
-                            if(this.broadcast) {
-
-                                if(!options.broadcastUrlGenerator) throw new Error('please initialize cli with broadcastUrlGenerator(url) handler');
-                                var urls = options.broadcastUrlGenerator(url);
-
-                                var promise = context.createPromise(),
-                                    responses = [],
-                                    jsonResponse = true;
-                                _.each(urls, function(urlDetails) {
-                                    var url = urlDetails.url;
-                                    $.ajax(
-                                   {
-                                       url: url,
-                                       type: method,
-                                       data: body,
-                                       success: function(data, success, xhr) {
-                                            response = {data: data, args: args, context:context, promise: promise};
-
-                                            if(xhr.status!=200 || !data){
-                                                var msg = 'got status code:' + xhr.status + ';status text:'+xhr.statusText+'; response:' + xhr.responseText;
-                                                responses.push({instance: url, error: msg});
-                                                $(promise).trigger('error', msg);
-                                            }
-                                            else
-                                            {
-                                                if(xhr.getResponseHeader('content-type').indexOf('json')<0)
-                                                    jsonResponse = false;
-
-                                                responses.push({instance: urlDetails.name, response: data});
-                                                $(promise).trigger('data', data);
-                                            }
-                                       },
-                                       error: function(xhr){
-                                            var msg = 'error: status code:' + xhr.status +' status text:' + xhr.statusText+' response text:' + xhr.responseText;
-                                            responses.push({instance: urlDetails.name, error: msg});
-                                       },
-                                       complete: function(xhr, textStatus) {
-
-                                           promise.setProgress(_.size(responses)/urls.length);
-
-                                           if(_.size(responses)==urls.length) {
-                                               // sort responses
-                                               responses.sort(function(a,b){
-                                                   if(a.instance>b.instance) return 1;
-                                                   if(b.instance>a.instance) return -1;
-                                                   return 0;
-                                               });
-
-                                               var response = {data: responses, args: args, context:context, promise: promise};
-                                               if(handler) return handler(response);
-                                               else
-                                               {
-                                                   if(jsonResponse)
-                                                        promise.resolve(response.data);
-                                                   else
-                                                   // just combine the html blocks
-                                                       promise.resolve(
-                                                           _.map(responses, function(resp) {
-                                                               return resp.error || resp.response;
-                                                           }).join('')
-                                                       );
-                                               }
-                                           }
-                                       }
-                                   });
-
-                                });
-                                return promise;
-                            }
-                            else
-                            {
-                                 var response = {};
-
-                                 if(handler && this.options.returnBeforeInvoke) {
-                                     context.url = url;
-                                     response = {args: args, context:context};
-                                     return handler(response);
-                                 }
-
-                                var promise = context.createPromise();
-
-                                 $.ajax(
-                                 {
-                                     url: url,
-                                     type: method,
-                                     data: body,
-                                     success: function(data, success, xhr) {
-                                         response = {data: data, args: args, context:context, promise: promise};
-
-                                         if(xhr.status!=200 || !data){
-                                             var msg = 'got status code:' + xhr.status + ';status text:'+xhr.statusText+'; response:' + xhr.responseText;
-                                             if(handler) handler(msg, response);
-                                             else promise.resolve(msg);
-                                             return;
-                                         }
-
-                                         if(handler)
-                                             handler(null, response);
-                                         else
-                                             promise.resolve(data);
-                                     },
-                                     error: function(xhr){
-                                         var msg = 'error: status code:' + xhr.status +' status text:' + xhr.statusText+' response text:' + xhr.responseText;
-                                         response = {args: args, context:context, promise: promise};
-                                         if(handler) handler(msg, response);
-                                         else promise.resolve(msg);
-                                    }
-                                 });
-
-                                return promise;
-                            }
-                         }
-
-                         function getType(type) {
-                             switch(type) {
-                                 case 'bool': return 'boolean';
-                                 case 'date':
-                                 case 'text': return 'string';
-                                 case 'int': return 'number';
-
-                                 default: return type;
-                             }
-                         }
-
-                         function addDefaultQueryVariables(url, env) {
-                                 // TODO: change to use url plugin
-                                 for(var envVarName in env) {
-                                     var envVar = env[envVarName];
-                                     if(envVar.useAtQuery && envVar.value) {
-                                         addVariable(envVarName, envVar.value);
-                                     }
-                                 }
-
-                                 return url;
-
-                                 function addVariable(name, value) {
-                                     var pair = '$' + name+'='+value;
-                                     if(url.indexOf("?")>0)
-                                         url+='&'+pair;
-                                     else
-                                         url+='?'+pair;
-                                 }
-                             }
-
-                         return newCommand;
-                     }
-
-                     function createGroupCommand(name) {
-                         return {
-                             name: name,
-                             description: "Group of commands for " + name,
-                             usage: "type 'help "+name+"' for sub-commands"
-                         }
-
-                     }
-                 }
-
-                function storePlugin(plugin) {
-                    var commands = loadPluginsFromStorage();
-                    commands.push(plugin);
-                    localStorage.setItem(pluginsStorageKey, JSON.stringify(commands));
-                }
-
-                function loadPluginsFromStorage() {
-                    var commandsStr = localStorage.getItem(pluginsStorageKey);
-                    var commands = commandsStr ? JSON.parse(commandsStr) : [];
-                    return commands;
-                }
-
-                function removeStoredCommand(name) {
-                    var cmds = loadPluginsFromStorage();
-                    var newCmds = _.filter(cmds, function(c) { return c.groupCommandName!=name; });
-                    localStorage.setItem(pluginsStorageKey, JSON.stringify(newCmds));
-                }
-
-                function clearStoredCommands() {
-                    localStorage.setItem(pluginsStorageKey, JSON.stringify([]));
-                }
 
                 function jsonToHtml(obj, ignoreJQuery) {
 
@@ -1589,7 +1206,10 @@
                                if(key.indexOf('jQuery')==0 || typeof obj[key] == 'function')
                                    continue;
 
-                               var val = obj[key] ? (typeof obj[key] == 'object' ? _jsonToHtml(obj[key], ignoreJQuery) : obj[key]) : "";
+                               var val;
+                               if(typeof obj[key] == 'object' && obj[key]) val = _jsonToHtml(obj[key], ignoreJQuery);
+                               else if(typeof obj[key] == 'boolean') val = obj[key] ? 'true' : 'false';
+                               else val = obj[key] || '';
 
                                $("<tr>")
                                   .append($("<td class='metadataField'>").html(key))
@@ -1675,9 +1295,7 @@
                             else
                                 throw new Error('Can not delete command that was not added by you');
                         }
-
                     }
-
 
                     for(var i=0; commands && i<commands.length; i++) {
                         this.add(commands[i])
@@ -1923,6 +1541,526 @@
                     });
 
                 }
+
+                // plugins manager
+                function Plugins() {
+                    var self = this;
+                    this.plugins = [];
+
+                    this.init = function() {
+                        if(options.plugins) this.plugins = this.plugins.concat(options.plugins);
+                        this.plugins = this.plugins.concat(loadPluginsFromStorage());
+                        this.loadPlugins(this.plugins);
+                    }
+
+                    function loadPluginsFromStorage() {
+                        var pluginsFromStorage = localStorage.getItem(pluginsStorageKey); // returns string
+                        pluginsFromStorage = pluginsFromStorage ? JSON.parse(pluginsFromStorage) : []; // convert to array object
+                        return pluginsFromStorage;
+                    }
+
+                    function storePlugin(plugin) {
+                        var pluginsFromStorage = loadPluginsFromStorage();
+                        pluginsFromStorage.push(plugin);
+                        localStorage.setItem(pluginsStorageKey, JSON.stringify(pluginsFromStorage));
+                    }
+
+                    this.loadPlugins = function(plugins) {
+
+                        var loadPluginsFuncs = [],
+                            handlerObjNamePrefix = 'acli_plugin_handler_',
+                            handlerIndex = 0;
+
+                        /*
+                        $(plugins).each(function(i ,plugin) {
+                            loadPluginsFuncs.push(
+                                (function (plugin) {
+                                    return function(cb) {
+                                        loadPlugin(plugin, cb);
+                                    }
+                                })(plugin)
+                            );
+                        });
+
+                        if(loadPluginsFuncs.length) {
+                            var loadPluginsFuncsIndex=0;
+                            loadPluginsFuncs[loadPluginsFuncsIndex](_loadPluginsFuncsCb);
+
+                            function _loadPluginsFuncsCb() {
+                                loadPluginsFuncsIndex++;
+                                if(loadPluginsFuncsIndex<loadPluginsFuncs.length)
+                                    loadPluginsFuncs[loadPluginsFuncsIndex](_loadPluginsFuncsCb);
+                                else{
+                                    console.info('all plugins loaded successfully');
+                                }
+                            }
+                        }
+                        else console.info('no plugins to load');
+                        */
+                        $(plugins).each(function(i ,plugin) {
+                            loadPlugin(plugin, function(){});
+                        });
+
+                        function loadPlugin(plugin, persist, callback) {
+                            if(!callback) {
+                                callback = persist;
+                                persist = null;
+                            }
+                            var loadPluginDiv = $("<div>").addClass('cli-output-info').html('loading plugin ' + plugin.url + '... ').appendTo(resultsContainer);
+                            loadPluginDiv.append($("<img>").attr('src', $.fn.cli.images.processing));
+
+                            loadPluginInfo(plugin, function(error, pluginInfo){
+                                if (error) {
+                                    writeMessage('error', 'error loading plugin:' + plugin.url + '. error: ' + error);
+                                    loadPluginDiv.find('img').remove();
+                                    return callback();
+                                }
+
+                                 /*if(plugin.options){
+                                    for(var name in plugin.options){
+                                        var cmd = _.find(pluginInfo.commands, function(item) {
+                                            return item.name === name;
+                                        });
+                                        cmd.options = plugin.options[name];
+                                    }
+                                }*/
+
+                                // load plugin resources first- js, css files
+                                loadPluginResources(pluginInfo, function(){
+
+                                    // all resources loaded, we can now compile the commands
+                                    var newCommands = compilePlugin(pluginInfo);
+
+                                    _.each(newCommands, function(cmd) {
+                                        commands.add(cmd);
+                                    });
+
+                                    if(persist) storePlugin(plugin);
+                                    loadPluginDiv.find('img').remove();
+                                    callback(); // all resources were loaded
+                                });
+                            });
+                        }
+
+                        this.loadPlugin = loadPlugin;
+
+                        function loadPluginResources(pluginInfo, callback) {
+                            var files = {},
+                                rootUrl = pluginInfo.rootUrl;
+
+                            $(pluginInfo.commands).each(function(i ,command) {
+
+                                if(command.controller) {
+
+                                    if (command.controller.url) {
+                                        var scriptUrl = command.controller.url.indexOf('http') == 0 ? command.controller.url :
+                                                        rootUrl + '/' + command.controller.url;
+                                        command.controller._url = scriptUrl;
+                                        files[scriptUrl] = 'js';
+                                    }
+
+                                    if (command.controller.cssUrl) {
+                                        var cssUrl =    command.controller.cssUrl.indexOf('http') == 0 ? command.controller.cssUrl :
+                                                        rootUrl + '/' + command.controller.cssUrl;
+                                        files[cssUrl] = 'css';
+                                    }
+
+                                    if(command.controller.css) addCss(command.controller.css);
+                                }
+                            });
+
+                            var loadFileFuncs = [];
+
+                            for(var url in files) {
+                                loadFileFuncs.push(
+                                    (function (url, type) {
+                                        return function(cb) {
+                                            if(type == 'js')
+                                                loadJsFile(url, cb);
+                                            else
+                                                loadCssFile(url, cb);
+                                        }
+                                    })(url, files[url]));
+                            }
+
+                            if(loadFileFuncs.length) {
+                                var loadFileFuncsIndex=0;
+                                loadFileFuncs[loadFileFuncsIndex](_loadFileFuncsCb);
+
+                                function _loadFileFuncsCb() {
+                                    loadFileFuncsIndex++;
+                                    if(loadFileFuncsIndex<loadFileFuncs.length)
+                                        loadFileFuncs[loadFileFuncsIndex](_loadFileFuncsCb);
+                                    else
+                                        return callback(); // all resources were loaded
+                                }
+                            }
+                            else return callback(); // no resources to load
+
+                            function loadJsFile(url, cb) {
+                                console.log('loading js file', url);
+
+                                var scriptNameObj = handlerObjNamePrefix + (++handlerIndex);
+
+                                $.get(url, function (responseText, textStatus, xhr){
+                                    console.log('got response for script:', url);
+
+                                    var str = 'function '+scriptNameObj+'() {' + responseText + '}';
+                                    $("<script>").html(str).appendTo("head");
+                                    var context = {};
+                                    window[scriptNameObj].call(context);
+
+                                    var cmds = _.filter(pluginInfo.commands, function(c){
+                                        return c.controller && c.controller._url == url;
+                                    });
+                                    _.each(cmds, function(cmd) {
+                                        if(cmd.controller.clientOnly)
+                                            cmd.exec = context[cmd.name];
+                                        else {
+                                            if(!cmd.options) cmd.options = {};
+                                            cmd.options.handler = context[cmd.name];
+                                        }
+                                    });
+
+                                    console.log('added handler script:', url);
+
+                                    return cb();
+                                })
+                                .error(function(err){
+                                    writeMessage('error', 'error loading file: ' + url + '. error: ' + err.status + ' (' + err.statusText + ') ' + err.responseText);
+                                    cb();
+                                 });
+                            }
+
+                            function loadCssFile(url, cb) {
+                                console.log('loading css file', url);
+                                loadCss(url);
+                                return cb();
+                            }
+                        }
+
+                        // plugin: { url: url }
+                        // returns {url: url, plugin: plugin, commands: data}
+                        function loadPluginInfo(plugin, callback) {
+                            var url = plugin.url;
+                            console.info('loading plugins from ', url);
+
+                            getJson(url, function(err, resp){
+                                if(err)
+                                    callback(err);
+                                else {
+
+                                    var pluginInfo = {
+                                        plugin: plugin
+                                    };
+
+                                    if(resp instanceof Array) { // docRouter returns array
+                                        pluginInfo.commands = resp;
+                                        pluginInfo.rootUrl = url.replace('/!!','');
+                                    }
+                                    else {
+                                        pluginInfo.commands = resp.commands;
+                                        pluginInfo.rootUrl = resp.rootUrl || url;
+
+                                    }
+
+                                    callback(null, pluginInfo);
+                                }
+
+                            });
+                        }
+                    }
+
+                    //commandsInfo: {url: url, plugin: plugin, commands: data}
+                    function compilePlugin(commandsInfo) {
+
+                        var newCommands = {};
+                         var cmds = commandsInfo.commands;
+                         if(!cmds || !cmds.length) return;
+
+                         // group command is the last element of the url
+                         var commandRootUrl = commandsInfo.rootUrl;
+                         var commandName = commandsInfo.plugin.groupCommandName || commandRootUrl.split('/').pop();
+
+                         // we create group for apis with more than 1 command or
+                         // for remote commads which were loaded by the user
+                         var isGroup = cmds.length > 1 || commandsInfo.plugin.userCommand;
+                         if(isGroup) {
+                             var gCommand = createGroupCommand(commandName);
+                             if(commandsInfo.plugin.userCommand) gCommand.userCommand=true;
+                             newCommands[commandName] = gCommand;
+                         }
+
+                         var autoSubCommandNameIndex = 1;
+                         for(var i=0; i<cmds.length; i++) {
+                             var cmd = cmds[i];
+                             if(cmd.ignore) continue;
+                             var cmdName = commandName;
+
+                             // construct command name
+                             // try getting name --> id --> create auto name
+                             if(isGroup) {
+                                 var subCommandName = cmd.name || cmd.id || ('autoCommand'+(autoSubCommandNameIndex++));
+                                 cmdName += ' ' + subCommandName.toLowerCase();
+                             }
+                             newCommands[cmdName] = createCommand(cmdName, cmd, commandRootUrl, commandsInfo.plugin);
+                         }
+
+                         return newCommands;
+
+                         function createCommand(name, cmd, rootUrl, plugin) {
+
+                             //plugin.options = plugin.options || {};
+                             //var exclueAndOverride = plugin.options[name] ?  plugin.options[name].excludeAndOverideParams : {};
+
+                             var exclueAndOverride = cmd.options ? cmd.options.excludeAndOverideParams : {};
+
+                             var newCommand = {
+                                 name: name,
+                                 usage: cmd.usage,
+                                 example: cmd.example,
+                                 response: cmd.response || 'json',
+                                 method: cmd.method,
+                                 rootUrl: rootUrl,
+                                 path: rootUrl + cmd.path,
+                                 plugin: plugin,
+                                 ignoredParams: {},
+                                 options: cmd.options
+                             }
+
+                             if(cmd.hasOwnProperty('doc')) newCommand.description = cmd.doc;
+                             if(cmd.hasOwnProperty('usage')) newCommand.usage = cmd.usage;
+                             if(cmd.hasOwnProperty('example')) newCommand.example = cmd.example;
+                             if(cmd.hasOwnProperty('hidden'))newCommand.hidden = cmd.hidden;
+
+                             var params = [];
+                             for(var paramName in cmd.params) {
+                                 var param = cmd.params[paramName];
+                                 var newParam =
+                                 {
+                                     name: paramName,
+                                     type: getType(param.type),
+                                     style: param.style
+                                 }
+                                 if(param.hasOwnProperty('doc')) newParam.description = param.doc;
+                                 if(param.hasOwnProperty('options')) newParam.options = param.options;
+                                 if(param.hasOwnProperty('short')) newParam.short = param.short;
+                                 if(param.hasOwnProperty('defaultEnvVar')) newParam.defaultEnvVar = param.defaultEnvVar;
+                                 if(param.hasOwnProperty('defaultValue'))
+                                     newParam.defaultValue = param.defaultValue;
+                                 else if(!param.required) newParam.defaultValue = null;
+
+                                 if(!exclueAndOverride || !exclueAndOverride[paramName])
+                                     params.push(newParam);
+                                 else
+                                     newCommand.ignoredParams[newParam.name] = newParam;
+                             }
+                             newCommand.params = params;
+
+                             // add the rest of the command fields
+                             for(var field in cmd) {
+                                 if(!newCommand.hasOwnProperty(field))
+                                     newCommand[field] = cmd[field];
+                             };
+
+                             if(!newCommand.exec) {
+                                newCommand.exec = function(args, context) {
+                                 console.log(args, this);
+
+                                 // construct url
+                                 var url = this.path;
+                                 var body = null;
+                                 var method = this.method;
+
+                                 for(var i=0; i<this.params.length; i++) {
+                                     var param = this.params[i];
+                                     if(!args[param.name]) continue;
+
+                                     addParam(param, args[param.name]);
+                                 }
+
+                                 // override params
+                                 var exclueAndOverride = this.options ? this.options.excludeAndOverideParams : {};
+                                 //var exclueAndOverride = this.plugin.options[this.name] ?  this.plugin.options[this.name].excludeAndOverideParams : {};
+                                 for(var paramName in exclueAndOverride){
+                                     addParam(this.ignoredParams[paramName], exclueAndOverride[paramName]);
+                                 }
+
+                                 function addParam(param, value) {
+                                     switch(param.style) {
+                                         case 'template' :
+                                             url = url.replace(':'+param.name, value);
+                                             break;
+                                         case 'query' :
+                                             var qsParam = param.name+'='+value;
+                                             if(url.indexOf('?')<0) url+='?'+qsParam;
+                                             else url+='&'+qsParam;
+                                             break;
+                                         case 'body' :
+                                             if(!body) body={};
+                                             body[param.name] = value;
+                                             break;
+                                     }
+                                 }
+
+                                // add $ variables from environment
+                                url = addDefaultQueryVariables(url, context.env);
+
+                                var handler = this.options && this.options.handler ? this.options.handler : null;
+
+                                var ajaxRequestsOptions = [{
+                                    url: url,
+                                    type: method,
+                                    data: body
+                                }];
+
+                                var isBroadcast = this.broadcast;
+                                if(isBroadcast) {
+                                    if(!options.broadcastUrlGenerator) throw new Error('please initialize cli with broadcastUrlGenerator(url) handler');
+                                    ajaxRequestsOptions = options.broadcastUrlGenerator(ajaxRequestsOptions[0]);
+                                }
+
+                                var promise = context.createPromise(),
+                                    responses = [];
+
+                                _.each(ajaxRequestsOptions, function(ajaxRequest) {
+
+                                    ajaxRequest.context = ajaxRequest;
+                                    $.extend(ajaxRequest,
+                                        {
+                                            success: function(data, success, xhr) {
+
+                                                var instance = this.server || '';
+                                                if(xhr.status!=200 || !data){
+                                                    var msg = 'got status code:' + xhr.status + ';status text:'+xhr.statusText+'; response:' + xhr.responseText;
+                                                    responses.push({instance: instance, error: msg});
+                                                    $(promise).trigger('error', msg);
+                                                }
+                                                else
+                                                {
+                                                    responses.push({instance: instance, response: data});
+                                                    $(promise).trigger('data', data);
+                                                }
+                                           },
+                                           error: function(xhr){
+                                                var msg = 'error: status code:' + xhr.status +' status text:' + xhr.statusText+' response text:' + xhr.responseText;
+                                                responses.push({instance: this.server || '', error: msg});
+                                           },
+                                           complete: function(xhr, textStatus) {
+
+                                              // in case of a single response
+                                              if(ajaxRequestsOptions.length == 1 && !isBroadcast){
+                                                  var resp = responses[0];
+                                                  if(handler)
+                                                      return handler(resp.error, {data: resp.response, args: args, context:context, promise: promise});
+                                                  else
+                                                      return promise.resolve(resp.error || resp.response);
+                                              }
+
+                                               // in case of multiple responses
+                                               promise.setProgress(_.size(responses)/ajaxRequestsOptions.length);
+                                               if(_.size(responses)<ajaxRequestsOptions.length) return;
+
+                                               // sort responses
+                                               responses.sort(function(a,b){
+                                                   if(a.instance>b.instance) return 1;
+                                                   if(b.instance>a.instance) return -1;
+                                                   return 0;
+                                               });
+
+
+
+                                               var resp = {data: responses, args: args, context:context, promise: promise};
+
+                                               if(handler) return handler(resp);
+                                               else {
+                                                   var isJson = true;
+                                                   _.each(responses, function(_resp){
+                                                       if(_resp.response && typeof _resp.response !== 'object') isJson = false;
+                                                   });
+
+                                                   if(isJson)
+                                                        promise.resolve(resp.data);
+                                                   else
+                                                       // just combine the html blocks
+                                                       promise.resolve(
+                                                           _.map(responses, function(_resp) {
+                                                               return _resp.error || _resp.response;
+                                                           }).join('')
+                                                       );
+                                               }
+                                           }
+                                        }
+                                    );
+
+                                    $.ajax(ajaxRequest);
+
+                                });
+
+                                return promise;
+
+                             }
+
+                                 function getType(type) {
+                                    switch(type) {
+                                        case 'bool': return 'boolean';
+                                        case 'date':
+                                        case 'text': return 'string';
+                                        case 'int': return 'number';
+
+                                        default: return type;
+                                    }
+                                }
+
+                                function addDefaultQueryVariables(url, env) {
+                                        // TODO: change to use url plugin
+                                        for(var envVarName in env) {
+                                            var envVar = env[envVarName];
+                                            if(envVar.useAtQuery && envVar.value) {
+                                                addVariable(envVarName, envVar.value);
+                                            }
+                                        }
+
+                                        return url;
+
+                                        function addVariable(name, value) {
+                                            var pair = '$' + name+'='+value;
+                                            if(url.indexOf("?")>0)
+                                                url+='&'+pair;
+                                            else
+                                                url+='?'+pair;
+                                        }
+                                    }
+
+
+
+                             }
+
+                             return newCommand;
+                         }
+
+                         function createGroupCommand(name) {
+                             return {
+                                 name: name,
+                                 description: "Group of commands for " + name,
+                                 usage: "type 'help "+name+"' for sub-commands"
+                             }
+                         }
+                     }
+
+                    // todo: change groupCommandName to plugin name
+                    this.removePlugin = function(plugin) {
+                        var pluginsFromStorage = loadPluginsFromStorage();
+                        var newPluginsArr = _.filter(pluginsFromStorage, function(c) { return c.groupCommandName!=plugin; });
+                        localStorage.setItem(pluginsStorageKey, JSON.stringify(newPluginsArr));
+                    }
+
+                    this.reset = function() {
+                        localStorage.setItem(pluginsStorageKey, JSON.stringify([]));
+                    }
+
+                    this.list = loadPluginsFromStorage;
+                }
             });
         },
 
@@ -2054,20 +2192,6 @@
             var msg = 'error: status code:' + xhr.status +' status text:' + xhr.statusText+' response text:' + xhr.responseText;
             console.error(msg);
             callback(msg);
-        });
-    }
-
-    // plugin: { url: url }
-    // returns {url: url, plugin: plugin, commands: data}
-    function getPluginCommands(plugin, callback) {
-        var url = plugin.url;
-        console.info('loading plugins from ', url);
-
-        getJson(url, function(err, resp){
-            if(err)
-                callback(err);
-            else
-                callback(null, {url: url, plugin: plugin, commands: resp});
         });
     }
 

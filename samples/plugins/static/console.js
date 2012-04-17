@@ -40,18 +40,21 @@ $(function () {
 
     updatePrompt();
 
-    // returns an array of {name:, url:} used by cli when broadcasting a request
-    function broadcastUrlGenerator(url) {
+    // returns an array of ajaxOptions used by cli when broadcasting a request
+    function broadcastUrlGenerator(ajaxRequestOptions) {
 
         // assuming there are 3 servers,
         // and that when adding their name to the query string the requests are redirected to the specific server
         var servers = ['server1', 'server2', 'server3'];
 
-        var urlWithQuestionMark = url.indexOf('?') > -1;
-        var urls = _.map(servers, function(server) {
-            return {name: server, url: url + (urlWithQuestionMark ? '&' : '?') + 'server='+server };
+        var urlWithQuestionMark = ajaxRequestOptions.url.indexOf('?') > -1;
+
+        var ajaxRequestsOptions = _.map(servers, function(server) {
+            var serverRequest = $.extend(true, {}, ajaxRequestOptions,
+                    {server: server, url: ajaxRequestOptions.url + (urlWithQuestionMark ? '&' : '?') + 'server='+server });
+            return serverRequest;
         });
-        return urls;
+        return ajaxRequestsOptions;
     }
 
     function updatePrompt() {
