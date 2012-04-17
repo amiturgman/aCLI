@@ -27,7 +27,7 @@ Features
 * Supports broadcasting requests when working on a farm.
 
 
-![Example for 'My Board' feature](cli_myboard.jpg "aCLI with My Board")
+![Example for 'My Board' feature](https://github.com/amiturgman/aCLI/raw/master/cli_myboard.jpg "aCLI with My Board")
 
 Getting Started
 ---------------
