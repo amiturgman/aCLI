@@ -2,6 +2,8 @@ Anode Command Line Interface
 =============================
 ACLI is a command line interface, developed mainly for the use in the [anode project](http://anodejs.org).  
 
+__A [Polymer](https://www.polymer-project.org/1.0/) control wrapping this component is now available [here](https://github.com/amiturgman/web-cli)__ 
+
 Why developing a new CLI component?
 -----------------------------------
 Before starting to work on this module, few other existing open source CLI (command line interface) components were evaluated, like
