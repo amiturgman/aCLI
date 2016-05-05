@@ -1,0 +1,28 @@
+{
+  "name": "acli-plugins",
+  "version": "1.0.0",
+  "description": "sample for extending the console with remote commands (aka plugins)",
+  "main": "index.js",
+  "dependencies": {
+    "body-parser": "^1.15.0",
+    "cookie-parser": "^1.4.1",
+    "docrouter": "^0.7.0",
+    "express": "^4.13.4",
+    "jade": "^1.11.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amiturgman/aCLI.git"
+  },
+  "author": "Ami Turgman <ami.turgman@microsoft.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/amiturgman/aCLI/issues"
+  },
+  "homepage": "https://github.com/amiturgman/aCLI#readme"
+}

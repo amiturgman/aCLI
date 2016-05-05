@@ -1,0 +1,20 @@
+{
+  "name": "basic",
+  "homepage": "https://github.com/amiturgman/aCLI",
+  "authors": [
+    "Ami Turgman <ami.turgman@microsoft.com>"
+  ],
+  "description": "basic sample for aCLI library",
+  "main": "index.html",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "acli": "^0.0.10"
+  }
+}

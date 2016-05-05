@@ -1,0 +1,25 @@
+{
+  "name": "acli",
+  "version": "0.0.10",
+  "homepage": "https://github.com/amiturgman/aCLI",
+  "authors": [
+    "Ami Turgman <ami.turgman@microsoft.com>"
+  ],
+  "description": "web based command line interface",
+  "main": "lib/acli.js",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery": "^2.2.3",
+    "jquery-ui": "^1.11.4",
+    "query-object": "^2.0.2",
+    "underscore": "^1.8.3",
+    "urijs": "uri.js#^1.17.1"
+  }
+}

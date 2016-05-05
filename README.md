@@ -2,6 +2,8 @@ Anode Command Line Interface
 =============================
 ACLI is a command line interface, developed mainly for the use in the [anode project](http://anodejs.org).  
 
+__A [Polymer](https://www.polymer-project.org/1.0/) control wrapping this component is now available [here](https://github.com/amiturgman/web-cli)__ 
+
 Why developing a new CLI component?
 -----------------------------------
 Before starting to work on this module, few other existing open source CLI (command line interface) components were evaluated, like
@@ -21,13 +23,16 @@ Features
 * Supports plugins- remote commands integrated into the console, using [docRouter](https://github.com/anodejs/node-docrouter) metadata.  
 	Supporting plugins with client side processing and styling.  
 * Keeps command line history, plugins and environment variables in offline storage.
-* _My Board_ feature to keep command execution results on-screen.
+* _Pin Panel_ feature to keep command execution results on-screen.
 * Visualizes json data as an html table with auto collapsing deep elements.
 * Supports working in parallel with few instances/tabs of the console.
 * Supports broadcasting requests when working on a farm.
 
+__Extended documentation is available in the [docs](docs) folder__
 
-![Example for 'My Board' feature](https://github.com/amiturgman/aCLI/raw/master/cli_myboard.jpg "aCLI with My Board")
+![Example for 'Pin Panel' feature](https://github.com/amiturgman/aCLI/raw/master/images/demo1.png "aCLI demo")
+
+![Animated Demo](https://github.com/amiturgman/aCLI/raw/master/images/web-cli-demo.gif "animated demo")
 
 Getting Started
 ---------------
@@ -37,26 +42,13 @@ See the `basic` sample under the `samples` directory.
 html file:
 	
 	<body>
-
-		<div class="cli-output" id="cliOutput"></div>
-		<div class="cli-my-board" id="cliMyBoard">
-			<div class="cli-my-board-close"></div>
-			<div class="cli-my-board-title">My Board</div>
-		</div>
-		<div class="cli-input-container">
-			<span class="cli-promptText" id="cliPrompt">></span>
-			<input id="cliInput" class="cli-input" type="text">
-		</div>
-
+		<div class="cli-control"></div>
 	</body>
 
 js file:
 
-    var cli =  $("#cliInput").cli(
+    var cli =  $(".cli-control").cli(
            {
-               resultsContainer: $("#cliOutput"),
-               promptControl: $("#cliPrompt"),
-               myBoard: $("#cliMyBoard"),
                environment: {user: { type: 'string', value: '', description: 'The current user' }},
                commands: getCommands(),
 			   context: { some: 'object' },
@@ -130,7 +122,7 @@ See `plugins` under `samples` folder for a node JS sample application that exten
 
 Main Requirements
 -----------------
-Main requirements and detailed design can be found in the design.md file.
+Main requirements and detailed design can be found in the [design](docs/design.md) file.
 
 Enjoy!
 

@@ -1,13 +1,16 @@
 
+
+var api = { console: { autoLoad: false} };
+
 var express = require('express'),
-    app = express.createServer(),
-    docRouter = require('docrouter').DocRouter;
+    router = api.router = express.Router(),
+    docRouter = require('docrouter').docRouter;
 
-module.exports = app;
+module.exports = api;
 
-app.use(docRouter(express.router, '/api/someplugin', function(app) {
+docRouter(router, '/api/someplugin', function(router) {
 
-    app.get('/json/:tparam1/:tparam2', function(req, res) {
+    router.get('/json/:tparam1/:tparam2', function(req, res) {
             var tparam1 = req.params.tparam1;
             var tparam2 = req.params.tparam2;
             var qparam = req.query['qparam'];
@@ -49,7 +52,8 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
         }
     );
 
-    app.post('/html', function(req, res) {
+    router.post('/html', function (req, res) {
+        console.log(req.body);
             var flag = req.query.flag;
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end("<div style='background-color: red;'>HTML output: body param: " + req.body.bparam +
@@ -80,7 +84,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
             }
     );
 
-    app.post('/htmlbcast', function(req, res) {
+    router.post('/htmlbcast', function(req, res) {
                 var flag = req.query.flag;
                 res.writeHead(200, { 'Content-Type': 'text/html' });
                 res.end("<div class='anode-sample-class'>HTML output: (" + req.body.bparam + "): POST Param: " + req.body.bparam +
@@ -115,7 +119,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
                 }
         );
 
-    app.post('/htmlbcasthandler', function(req, res) {
+    router.post('/htmlbcasthandler', function(req, res) {
                     var flag = req.query.flag;
                     res.writeHead(200, {'Content-Type': 'text/html' });
                     res.end("<div style='background-color: yellow;'>HTML output: ("+req.query['server']+"): Template Param: "+req.body.bparam+
@@ -150,7 +154,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
                 }
         );
 
-    app.get('/bcast', function(req, res) {
+    router.get('/bcast', function(req, res) {
             res.writeHead(200, {'Content-Type': 'application/json' });
             res.end(JSON.stringify({server: req.query['server']}));
         },
@@ -163,7 +167,7 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
             broadcast: true
     });
 
-    app.get('/handler/:tparam', function(req, res) {
+    router.get('/handler/:tparam', function(req, res) {
                 var tparam = req.params.tparam;
                 var qparam = req.query['qparam'];
 
@@ -193,4 +197,4 @@ app.use(docRouter(express.router, '/api/someplugin', function(app) {
             }
     );
 
-}));
+});

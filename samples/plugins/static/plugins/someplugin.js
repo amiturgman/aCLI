@@ -10,7 +10,7 @@
     console.info('sample handler loaded');
 
     this.handler = function(error, response){
-        if ($.query.get('debug')) debugger;
+        if (queryObject.get('debug')) debugger;
         var args = response.args;
         var context = response.context;
         var url = context.url;
@@ -33,7 +33,7 @@
     }
 
     this.htmlbcasthandler = function(response){
-        if ($.query.get('debug')) debugger;
+        if (queryObject.get('debug')) debugger;
         var args = response.args;
         var context = response.context;
         var env = context.env;

@@ -14,18 +14,15 @@ $(function () {
 
     var commands = getCommands();
 
-    var cli =  $("#cliInput").cli(
-           {
-               resultsContainer: $("#cliOutput"),
-               promptControl: $("#cliPrompt"),
-               myBoard: $("#cliMyBoard"),
-               environment: env,
-               commands: commands,
-               sid: 'aaaa',
-               context: { some: 'object' },
-               welcomeMessage: "Welcome to anode console!<br/>Type <b>help</b> to start exploring the commands currently supported!<br/>"
-           }
-       );
+    var opts = {
+        environment: env,
+        commands: commands,
+        sid: 'aaaa',
+        context: { some: 'object' },
+        welcomeMessage: "Welcome to the console!<br/>Type <b>help</b> to start exploring the commands currently supported!<br/>"
+    };
+
+    var cli =  $(".cli-control").cli(opts);
 
     // get environment events broker
     var ebEnv = cli.cli('envEventsBroker');
@@ -45,7 +42,7 @@ $(function () {
         cli_prompt(prompt);
     }
 
-    // create default anode commands
+    // create default commands
     function getCommands() {
         var commands = [];
 
