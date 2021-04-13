@@ -1,6 +1,6 @@
 {
   "name": "acli",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "homepage": "https://github.com/amiturgman/aCLI",
   "authors": [
     "Ami Turgman <ami.turgman@microsoft.com>"
@@ -16,10 +16,10 @@
     "tests"
   ],
   "dependencies": {
-    "jquery": "^2.2.3",
-    "jquery-ui": "^1.11.4",
-    "query-object": "^2.0.2",
-    "underscore": "^1.8.3",
-    "urijs": "uri.js#^1.17.1"
+    "jquery": "2.2.4",
+    "jquery-ui": "1.12.1",
+    "query-object": "2.0.3",
+    "underscore": "1.9.1",
+    "urijs": "1.19.1"
   }
 }
